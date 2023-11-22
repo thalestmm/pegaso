@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from datetime import datetime, timedelta
 
 
 class UserProfile(models.Model):
@@ -59,7 +60,7 @@ class UserProfile(models.Model):
 
 
 class OperatorProfile(models.Model):
-    # Operacionalidades
+    # Specialty levels
     PIL_IN = "IN"
     PIL_OPR = "PO"
     PIL_BAS = "PB"
@@ -86,9 +87,8 @@ class OperatorProfile(models.Model):
 
     specialty = models.CharField(max_length=2, choices=SPECIALTY_CHOICES, verbose_name="Operacionalidade")
     project = models.ForeignKey("Project", on_delete=models.SET_NULL, verbose_name="Projeto", null=True)
-    last_flight = models.DateField(verbose_name="Data do último voo", auto_now_add=True)
-    yearly_hours = models.TimeField(verbose_name="Horas voadas no ano")
-    # TODO: Enable more than 24 hours (transform into DurationField)
+    last_flight_date = models.DateField(verbose_name="Data do último voo", default=datetime.today())
+    yearly_hours = models.DurationField(verbose_name="Horas voadas no ano")
 
     # TODO: Days since last flight and script to reset all yearly hours (confirm action etc)
 
@@ -96,6 +96,23 @@ class OperatorProfile(models.Model):
 
     def __str__(self):
         return "{} - {} {}".format(self.user, self.specialty, self.project)
+
+    def save(self, *args, **kwargs):
+        self.days_since_last_flight = (datetime.today().date() - self.last_flight_date).days
+
+        instructor_classes = [self.PIL_IN, self.MC_IN, self.COM_IN]
+        operational_classes = [self.PIL_OPR, self.PIL_BAS, self.MC_OPR, self.COM_OPR]
+
+        self.is_adapted = True
+
+        # Instrutores desadaptam com mais de 45 dias e operacionais com mais de 35. Alunos não desadaptam.
+
+        if self.specialty in operational_classes and self.days_since_last_flight > 35:
+            self.is_adapted = False
+        if self.specialty in instructor_classes and self.days_since_last_flight > 45:
+            self.is_adapted = False
+
+        super().save(*args, **kwargs)
 
 
 class Project(models.Model):
@@ -115,7 +132,7 @@ class Airplane(models.Model):
     max_tof_weight = models.IntegerField(verbose_name="Peso Máximo DEP")  # Takeoff
     max_ldg_weight = models.IntegerField(verbose_name="Peso Máximo PSO")  # Landing
     burn_rate = models.IntegerField(verbose_name="Consumo de Combustível")  # TODO: Define standard unit
-    max_passengers = models.IntegerField(verbose_name="Número máximo de PAX")
+    max_passengers = models.IntegerField(verbose_name="Número máximo de PAX") # TODO: Será que é necessário manter?
     max_flight_time = models.TimeField(verbose_name="Autonomia")
 
     def __str__(self):
