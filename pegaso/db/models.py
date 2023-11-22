@@ -1,20 +1,20 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 
 
 class UserProfile(models.Model):
-    # TODO: Create User relationship
-    saram = models.CharField(unique=True,
-                             max_length=8,
-                             verbose_name="SARAM")
-    cpf = models.CharField(unique=True,
-                           max_length=14,
-                           verbose_name="CPF")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        blank=True,
+        default=None
+    )
+    saram = models.CharField(unique=True, max_length=8, verbose_name="SARAM")
+    cpf = models.CharField(unique=True, max_length=14, verbose_name="CPF")
     # TODO: Validate CPF and SARAM inputs
     full_name = models.CharField(max_length=100, verbose_name="Nome Completo")
     op_name = models.CharField(max_length=50, verbose_name="Nome de Guerra")
-    telephone = models.CharField(max_length=20, verbose_name="Telefone (WhatsApp)",
-                                 blank=True, null=True)
+    telephone = models.CharField(max_length=20, verbose_name="Telefone (WhatsApp)", blank=True, null=True)
 
     # Rank options
     TEN_BRIG = "TB"
@@ -49,9 +49,7 @@ class UserProfile(models.Model):
         (SGT_3, "Terceiro-Sargento")
     ]
 
-    rank = models.CharField(max_length=2,
-                            choices=RANK_CHOICES,
-                            verbose_name="Posto / Graduação")
+    rank = models.CharField(max_length=2, choices=RANK_CHOICES, verbose_name="Posto / Graduação")
 
     # Operational
     # TODO: Add qualification per project
@@ -59,39 +57,79 @@ class UserProfile(models.Model):
     def __str__(self):
         return "{} {}".format(self.rank, self.op_name)
 
-class Project(models.Model):
-    type = models.CharField(max_length=5)
-    number = models.IntegerField()
 
-    # Performance data
-    cruise_speed = models.IntegerField()
-    basic_weight = models.IntegerField()  # TODO: Define standard  unit
-    max_tof_weight = models.IntegerField()  # Takeoff
-    max_ldg_weight = models.IntegerField()  # Landing
-    burn_rate = models.IntegerField()  # TODO: Define standard unit
-    max_passengers = models.IntegerField()
-    max_flight_time = models.TimeField()
+class OperatorProfile(models.Model):
+    # Operacionalidades
+    PIL_IN = "IN"
+    PIL_OPR = "PO"
+    PIL_BAS = "PB"
+    PIL_AL = "AL"
+    MC_IN = "IC"
+    MC_OPR = "MC"
+    MC_AL = "AC"
+    COM_IN = "IF"
+    COM_OPR = "TF"
+    COM_AL = "AF"
+
+    SPECIALTY_CHOICES = [
+        (PIL_IN, "Piloto Instrutor"),
+        (PIL_OPR, "Piloto Operacional"),
+        (PIL_BAS, "Piloto Básico"),
+        (PIL_AL, "Piloto-Aluno"),
+        (MC_IN, "Mecânico Instrutor"),
+        (MC_OPR, "Mecânico Operacional"),
+        (MC_AL, "Mecânico-Aluno"),
+        (COM_IN, "Comissário Instrutor"),
+        (COM_OPR, "Comissário Operacional"),
+        (COM_AL, "Comissário-Aluno")
+    ]
+
+    specialty = models.CharField(max_length=2, choices=SPECIALTY_CHOICES, verbose_name="Operacionalidade")
+    project = models.ForeignKey("Project", on_delete=models.SET_NULL, verbose_name="Projeto", null=True)
+    last_flight = models.DateField(verbose_name="Data do último voo", auto_now_add=True)
+    yearly_hours = models.TimeField(verbose_name="Horas voadas no ano")
+    # TODO: Enable more than 24 hours (transform into DurationField)
+
+    # TODO: Days since last flight and script to reset all yearly hours (confirm action etc)
+
+    user = models.ForeignKey("UserProfile", on_delete=models.CASCADE)
 
     def __str__(self):
-        return "{} {}".format(self.type, self.number)
+        return "{} - {} {}".format(self.user, self.specialty, self.project)
 
 
-class Qualification(models.Model):
-    name = models.CharField(max_length=2)
-    description = models.CharField(max_length=50)
+class Project(models.Model):
+    name = models.CharField(max_length=10, verbose_name="Tipo de Aeronave")
 
     def __str__(self):
         return self.name
 
 
+class Airplane(models.Model):
+    type = models.ForeignKey("Project", on_delete=models.CASCADE, verbose_name="Tipo de Aeronave")
+    number = models.IntegerField(unique=True, primary_key=True, verbose_name="Matrícula")
+
+    # Performance data
+    cruise_speed = models.IntegerField(verbose_name="Velocidade de Cruzeiro (kt)")
+    basic_weight = models.IntegerField(verbose_name="Peso Básico Operacional")  # TODO: Define standard  unit
+    max_tof_weight = models.IntegerField(verbose_name="Peso Máximo DEP")  # Takeoff
+    max_ldg_weight = models.IntegerField(verbose_name="Peso Máximo PSO")  # Landing
+    burn_rate = models.IntegerField(verbose_name="Consumo de Combustível")  # TODO: Define standard unit
+    max_passengers = models.IntegerField(verbose_name="Número máximo de PAX")
+    max_flight_time = models.TimeField(verbose_name="Autonomia")
+
+    def __str__(self):
+        return "{} {}".format(self.type, self.number)
+
+
 class Airport(models.Model):
-    icao = models.CharField(max_length=4)
-    city = models.CharField(max_length=100, null=True, blank=True)
+    icao = models.CharField(max_length=4, verbose_name="Código ICAO")
+    city = models.CharField(max_length=100, null=True, blank=True, verbose_name="Cidade")
 
     latitude = models.FloatField()
     longitude = models.FloatField()
 
-    has_fueling = models.BooleanField(default=False)
+    has_fueling = models.BooleanField(default=False, verbose_name="Abastecimento (CELOG)")
 
     def __str__(self):
         return self.icao
