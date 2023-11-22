@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 
 
 class UserProfile(models.Model):
+    """
+    Modelo para estender as informações de um determinado usuário, sem precisar alterar os seus campos originais.
+    """
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -60,6 +63,9 @@ class UserProfile(models.Model):
 
 
 class OperatorProfile(models.Model):
+    """
+    Cada usuário pode pertencer a mais de um QT. Por isso, os perfis operacionais ficarão como um modelo separado.
+    """
     # Specialty levels
     PIL_IN = "IN"
     PIL_OPR = "PO"
@@ -85,12 +91,12 @@ class OperatorProfile(models.Model):
         (COM_AL, "Comissário-Aluno")
     ]
 
+    # TODO: Adicionar mestres de salto
+
     specialty = models.CharField(max_length=2, choices=SPECIALTY_CHOICES, verbose_name="Operacionalidade")
     project = models.ForeignKey("Project", on_delete=models.SET_NULL, verbose_name="Projeto", null=True)
     last_flight_date = models.DateField(verbose_name="Data do último voo", default=datetime.today())
     yearly_hours = models.DurationField(verbose_name="Horas voadas no ano")
-
-    # TODO: Days since last flight and script to reset all yearly hours (confirm action etc)
 
     user = models.ForeignKey("UserProfile", on_delete=models.CASCADE)
 
@@ -102,6 +108,8 @@ class OperatorProfile(models.Model):
 
         instructor_classes = [self.PIL_IN, self.MC_IN, self.COM_IN]
         operational_classes = [self.PIL_OPR, self.PIL_BAS, self.MC_OPR, self.COM_OPR]
+
+        # TODO: Adicionar mestres de salto nas listas
 
         self.is_adapted = True
 
@@ -116,6 +124,9 @@ class OperatorProfile(models.Model):
 
 
 class Project(models.Model):
+    """
+    Modelo para contemplar os diferentes tipos de aeronaves de um esquadrão.
+    """
     name = models.CharField(max_length=10, verbose_name="Tipo de Aeronave")
 
     def __str__(self):
@@ -123,6 +134,9 @@ class Project(models.Model):
 
 
 class Airplane(models.Model):
+    """
+    Modelo para contemplar as diferentes matrículas de um determinado tipo de aeronave.
+    """
     type = models.ForeignKey("Project", on_delete=models.CASCADE, verbose_name="Tipo de Aeronave")
     number = models.IntegerField(unique=True, primary_key=True, verbose_name="Matrícula")
 
@@ -150,3 +164,13 @@ class Airport(models.Model):
 
     def __str__(self):
         return self.icao
+
+
+class Mission(models.Model):
+    """
+    Modelo para contemplar as ordens de missão e saídas gerais da escala de voo.
+    """
+    number = models.IntegerField(verbose_name="Numeração")
+    year = models.IntegerField(default=int(datetime.today().year), verbose_name="Ano")
+
+    route = models.JSONField(verbose_name="Rota")

@@ -9,3 +9,5 @@ admin.site.register(Airplane)
 admin.site.register(UserProfile)
 admin.site.register(OperatorProfile)
 
+# TODO: Add script to reset all yearly hours
+
