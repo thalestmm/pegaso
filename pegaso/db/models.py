@@ -1,6 +1,9 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from datetime import datetime, timedelta
+
+from django.db.models import DateField
 
 
 class UserProfile(models.Model):
@@ -95,7 +98,7 @@ class OperatorProfile(models.Model):
 
     specialty = models.CharField(max_length=2, choices=SPECIALTY_CHOICES, verbose_name="Operacionalidade")
     project = models.ForeignKey("Project", on_delete=models.SET_NULL, verbose_name="Projeto", null=True)
-    last_flight_date = models.DateField(verbose_name="Data do último voo", default=datetime.today())
+    last_flight_date = models.DateField(verbose_name="Data do último voo", default=timezone.now)
     yearly_hours = models.DurationField(verbose_name="Horas voadas no ano")
 
     user = models.ForeignKey("UserProfile", on_delete=models.CASCADE)
@@ -171,6 +174,13 @@ class Mission(models.Model):
     Modelo para contemplar as ordens de missão e saídas gerais da escala de voo.
     """
     number = models.IntegerField(verbose_name="Numeração")
+    # TODO: Auto-increase numbering (by year)
     year = models.IntegerField(default=int(datetime.today().year), verbose_name="Ano")
 
-    route = models.JSONField(verbose_name="Rota")
+    route = models.JSONField(verbose_name="Rota", null=True, blank=True)
+    crew = models.JSONField(verbose_name="Tripulação")
+    airplane = models.ForeignKey("Airplane", on_delete=models.SET_NULL, null=True, verbose_name="Matrícula")
+    instructions = models.TextField(max_length=1000, verbose_name="Instruções Especiais", null=True, blank=True)
+    passenger_list = models.JSONField(verbose_name="Relação de Passageiros", null=True, blank=True)
+    msgr = models.JSONField(verbose_name="MSGR", null=True, blank=True)
+    catering_request = models.JSONField(verbose_name="Pedido de lanche", null=True, blank=True)
