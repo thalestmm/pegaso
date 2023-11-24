@@ -1,7 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime
+import math
 
 
 class UserProfile(models.Model):
@@ -56,9 +57,6 @@ class UserProfile(models.Model):
 
     rank = models.CharField(max_length=2, choices=RANK_CHOICES, verbose_name="Posto / Graduação")
 
-    # Operational
-    # TODO: Add qualification per project
-
     def __str__(self):
         return "{} {}".format(self.rank, self.op_name)
 
@@ -78,6 +76,11 @@ class OperatorProfile(models.Model):
     COM_IN = "IF"
     COM_OPR = "TF"
     COM_AL = "AF"
+    MS_IN = "IS"
+    MS_OPR = "MS"
+    MS_AL = "AS"
+
+    # TODO: Conferir tags de MS com o Mentor
 
     SPECIALTY_CHOICES = [
         (PIL_IN, "Piloto Instrutor"),
@@ -89,10 +92,11 @@ class OperatorProfile(models.Model):
         (MC_AL, "Mecânico-Aluno"),
         (COM_IN, "Comissário Instrutor"),
         (COM_OPR, "Comissário Operacional"),
-        (COM_AL, "Comissário-Aluno")
+        (COM_AL, "Comissário-Aluno"),
+        (MS_IN, "Instrutor de Lançamento"),
+        (MS_OPR, "Mestre de Lançamento Op."),
+        (MS_AL, "Aluno de Lançamento"),
     ]
-
-    # TODO: Adicionar mestres de salto
 
     specialty = models.CharField(max_length=2, choices=SPECIALTY_CHOICES, verbose_name="Operacionalidade")
     project = models.ForeignKey("Project", on_delete=models.SET_NULL, verbose_name="Projeto", null=True)
@@ -107,19 +111,26 @@ class OperatorProfile(models.Model):
     def save(self, *args, **kwargs):
         self.days_since_last_flight = (datetime.today().date() - self.last_flight_date).days
 
-        instructor_classes = [self.PIL_IN, self.MC_IN, self.COM_IN]
-        operational_classes = [self.PIL_OPR, self.PIL_BAS, self.MC_OPR, self.COM_OPR]
+        instructor_classes = [self.PIL_IN, self.MC_IN, self.COM_IN, self.MS_IN]
+        operational_classes = [self.PIL_OPR, self.PIL_BAS, self.MC_OPR, self.COM_OPR, self.MS_OPR]
 
-        # TODO: Adicionar mestres de salto nas listas
-
-        self.is_adapted = True
+        # TODO: Conferir tempo de desadapt dos MS
 
         # Instrutores desadaptam com mais de 45 dias e operacionais com mais de 35. Alunos não desadaptam.
 
-        if self.specialty in operational_classes and self.days_since_last_flight > 35:
+        self.is_adapted = True  # Para alunos
+
+        self.adapted_period_days = math.inf  # Para alunos
+
+        if self.specialty in instructor_classes:
+            self.adapted_period_days = 45
+        if self.specialty in operational_classes:
+            self.adapted_period_days = 35
+
+        if self.days_since_last_flight > self.adapted_period_days:
             self.is_adapted = False
-        if self.specialty in instructor_classes and self.days_since_last_flight > 45:
-            self.is_adapted = False
+
+        # TODO: Conferir se é igual ou maior / igual que os dias
 
         super().save(*args, **kwargs)
 
@@ -147,7 +158,7 @@ class Airplane(models.Model):
     max_tof_weight = models.IntegerField(verbose_name="Peso Máximo DEP")  # Takeoff
     max_ldg_weight = models.IntegerField(verbose_name="Peso Máximo PSO")  # Landing
     burn_rate = models.IntegerField(verbose_name="Consumo de Combustível")  # TODO: Define standard unit
-    max_passengers = models.IntegerField(verbose_name="Número máximo de PAX") # TODO: Será que é necessário manter?
+    max_passengers = models.IntegerField(verbose_name="Número máximo de PAX")  # TODO: Será que é necessário manter?
     max_flight_time = models.TimeField(verbose_name="Autonomia")
 
     def __str__(self):
@@ -172,7 +183,10 @@ class Mission(models.Model):
     Modelo para contemplar as ordens de missão e saídas gerais da escala de voo.
     """
     number = models.IntegerField(verbose_name="Numeração")
+    # TODO: Manage unregistered missions (local, etc)
     # TODO: Auto-increase numbering (by year)
+    # TODO: Turn number and year into unique ID
+    # TODO: Adicionar Ficha V2
     year = models.IntegerField(default=int(datetime.today().year), verbose_name="Ano")
 
     route = models.JSONField(verbose_name="Rota", null=True, blank=True)
