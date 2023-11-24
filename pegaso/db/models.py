@@ -20,6 +20,7 @@ class UserProfile(models.Model):
     # TODO: Validate CPF and SARAM inputs
     full_name = models.CharField(max_length=100, verbose_name="Nome Completo")
     op_name = models.CharField(max_length=50, verbose_name="Nome de Guerra")
+    trigram = models.CharField(max_length=3, verbose_name="Trigrama", unique=True)
     telephone = models.CharField(max_length=20, verbose_name="Telefone (WhatsApp)", blank=True, null=True)
 
     # Rank options
@@ -58,7 +59,7 @@ class UserProfile(models.Model):
     rank = models.CharField(max_length=2, choices=RANK_CHOICES, verbose_name="Posto / Graduação")
 
     def __str__(self):
-        return "{} {}".format(self.rank, self.op_name)
+        return "{} - {} {}".format(self.trigram, self.rank, self.op_name)
 
 
 class OperatorProfile(models.Model):
@@ -183,10 +184,10 @@ class Mission(models.Model):
     Modelo para contemplar as ordens de missão e saídas gerais da escala de voo.
     """
     number = models.IntegerField(verbose_name="Numeração")
-    # TODO: Manage unregistered missions (local, etc)
     # TODO: Auto-increase numbering (by year)
     # TODO: Turn number and year into unique ID
     # TODO: Adicionar Ficha V2
+    # TODO: Pensar em uma lógica pra não precisar considerar voo local como missão (outro modelo?)
     year = models.IntegerField(default=int(datetime.today().year), verbose_name="Ano")
 
     route = models.JSONField(verbose_name="Rota", null=True, blank=True)
